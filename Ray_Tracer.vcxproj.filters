@@ -26,16 +26,22 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.fs">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="test.vs">
-      <Filter>shaders</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="shader.h">
+    <ClInclude Include="shader_m.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shader_c.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="screenQuad.vs">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="screenQuad.fs">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="computeShader.cs">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

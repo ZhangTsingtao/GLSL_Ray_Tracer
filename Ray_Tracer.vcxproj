@@ -138,11 +138,13 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.fs" />
-    <None Include="test.vs" />
+    <ClInclude Include="shader_c.h" />
+    <ClInclude Include="shader_m.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="shader.h" />
+    <None Include="computeShader.cs" />
+    <None Include="screenQuad.fs" />
+    <None Include="screenQuad.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
