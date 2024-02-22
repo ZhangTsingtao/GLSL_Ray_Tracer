@@ -111,9 +111,10 @@ int main()
         //glDrawArrays(GL_TRIANGLES, 0, 6);
 
         //test passing uniform
-        float screenZ = -0.1f;
+        /*float screenZ = -0.1f;
         int vertexColorLocation = glGetUniformLocation(ourShader.ID, "screenZ");
-        glUniform1f(vertexColorLocation, screenZ);
+        glUniform1f(vertexColorLocation, screenZ);*/
+        ourShader.setFloat("screenZ", -0.5f);
         //test done
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
