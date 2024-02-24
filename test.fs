@@ -112,13 +112,18 @@ Ray ReflectRay(Ray inputRay, vec3 N, vec3 reflectPoint)
 	return RayConstructor(reflectPoint, i - 2.0 * dot(i, n) * n);
 }
 
+vec3 BlinnPhongModel(vec3 objectColor, vec3 ambientColor, Light light, vec3 inputRayDir, vec3 lightRayDir, vec3 N, float specularExp)
+{
+	float diffuseIntensity = light.intensity * max( 0.0, dot(lightRayDir, N) );
+	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRayDir, N), inputRayDir)), specularExp);
+	return  0.7 * ambientColor + 0.5 * diffuseIntensity * objectColor + 0.4 * specularIntensity * light.color;
+}
 void main()
 {
 	//screen space is ([0,1], [0,1], z in vertex shader)
 	//all objects in screen space, zNear is -1
 	vec3 backgroundColor = vec3(0.1, 0.1, 0.1);
 	vec3 ambientColor = vec3(0.2, 0.1, 0.1);
-	int objectIndex[2] = int[2](999, 999);//triangle = 0, sphere = 1;
 
 	vec3 camPos = vec3(0.5, 0.5, 0.0);
 	Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 2);
@@ -135,8 +140,8 @@ void main()
 	Triangle triangles[2];
 	triangles[0] = triangle0;
 	triangles[1] = triangle1;
-	//triangles[2] = triangle2; //testing triangle
 
+	int objectIndex[2] = int[2](999, 999);//triangle = 0, sphere = 1;
 	//intersect with objects
 	float distance = 999999;
 	for(int i = 0; i < triangles.length(); i++)
@@ -167,11 +172,10 @@ void main()
 		return; 
 	}
 
-	//shadow ray
 	vec3 hitPoint = ray.origin + ray.direction * distance;
 	vec3 lightRayDir = normalize(light.position - hitPoint);
 	Ray lightRay = RayConstructor(hitPoint + lightRayDir * 0.01, lightRayDir);
-	
+
 	bool blocked = false;
 	float tempDist;
 	for(int i = 0; i < triangles.length(); i++)
@@ -188,26 +192,19 @@ void main()
 		FragColor = 0.7 * vec4(ambientColor, 1.0);
 		return;
 	}
-	
-	//normal
+
+	//get normal and object color
 	vec3 N = vec3(0,0,0);
-	if(objectIndex[0] == 0) N = GetTriangleNormal(triangles[objectIndex[1]], ray);
-	else if(objectIndex[0] == 1) N = GetSphereNormal(spheres[objectIndex[1]], ray.origin + ray.direction * distance);
-	//FragColor = vec4(N, 1.0);//test normal
+	vec3 objectColor;
+	if(objectIndex[0] == 0) {
+		N = GetTriangleNormal(triangles[objectIndex[1]], ray);
+		objectColor = triangles[objectIndex[1]].color;
+	}
+	else if(objectIndex[0] == 1) {
+		N = GetSphereNormal(spheres[objectIndex[1]], ray.origin + ray.direction * distance);
+		objectColor = spheres[objectIndex[1]].color;
+	}	
 
-	//Blinn-Phong shadiing
-	//diffuse
-	float diffuseIntensity = light.intensity * max( 0.0, dot(lightRayDir, N) );
-	//FragColor = vec4(diffuseIntensity,0,0, 1.0);
-
-	//specular
-	float specularExp = 100;
-	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRay.direction, N), ray.direction)), specularExp);
-	//powf(max(0.f, reflect(light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
-
-	if(objectIndex[0] == 0)
-	FragColor =  0.7 * vec4(ambientColor, 1.0) + 0.5 * vec4(diffuseIntensity * triangles[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
-	else if(objectIndex[0] == 1) 
-	FragColor = 0.7 * vec4(ambientColor, 1.0) + 0.5 * vec4(diffuseIntensity * spheres[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
-
+	vec3 phongColor = BlinnPhongModel(objectColor, ambientColor, light, ray.direction, lightRay.direction, N, 10);
+	FragColor = vec4(phongColor, 1.0);
 }
