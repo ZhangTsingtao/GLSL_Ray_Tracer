@@ -121,7 +121,7 @@ void main()
 	int objectIndex[2] = int[2](999, 999);//triangle = 0, sphere = 1;
 
 	vec3 camPos = vec3(0.5, 0.5, 0.0);
-	Light light = LightConstructor(vec3(1, 4, 0), vec3(0.1, 0.8, 0.1), 1);
+	Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 2);
 	Ray ray = RayConstructor(camPos, screenCoord - camPos);
 
 	Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //left front, right front, left back
@@ -185,7 +185,7 @@ void main()
 
 	//if blocked by another object, return ambient color
 	if (blocked){
-		FragColor = 0.1 * vec4(ambientColor, 1.0);
+		FragColor = 0.7 * vec4(ambientColor, 1.0);
 		return;
 	}
 	
@@ -201,13 +201,13 @@ void main()
 	//FragColor = vec4(diffuseIntensity,0,0, 1.0);
 
 	//specular
-	float specularExp = 4;
+	float specularExp = 100;
 	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRay.direction, N), ray.direction)), specularExp);
 	//powf(max(0.f, reflect(light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
 
 	if(objectIndex[0] == 0)
-	FragColor =  0.1 * vec4(ambientColor, 1.0) + 0.8 * vec4(diffuseIntensity * triangles[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
+	FragColor =  0.7 * vec4(ambientColor, 1.0) + 0.5 * vec4(diffuseIntensity * triangles[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
 	else if(objectIndex[0] == 1) 
-	FragColor = 0.1 * vec4(ambientColor, 1.0) + 0.8 * vec4(diffuseIntensity * spheres[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
+	FragColor = 0.7 * vec4(ambientColor, 1.0) + 0.5 * vec4(diffuseIntensity * spheres[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
 
 }
