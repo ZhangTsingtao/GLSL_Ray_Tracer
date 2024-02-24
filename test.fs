@@ -18,12 +18,12 @@ struct Light{
 	vec3 color;
 	float intensity;
 };
-Light LightConstructor(vec3 position, vec3 color)
+Light LightConstructor(vec3 position, vec3 color, float intensity)
 {
 	Light light;
 	light.position = position;
 	light.color = color;
-	light.intensity = (color.x + color.y + color.z) / 3.0;
+	light.intensity = intensity;
 	return light;
 }
 
@@ -98,6 +98,20 @@ vec3 GetSphereNormal(Sphere sphere, vec3 hitPosition)
 	return normalize(hitPosition - sphere.center);
 }
 
+vec3 Reflect(vec3 I, vec3 N)
+{
+	vec3 i = normalize(I);
+	vec3 n = normalize(N);
+	return i - 2.0 * dot(i, n) * n;
+}
+
+Ray ReflectRay(Ray inputRay, vec3 N, vec3 reflectPoint)
+{
+	vec3 i = normalize(inputRay.direction);
+	vec3 n = normalize(N);
+	return RayConstructor(reflectPoint, i - 2.0 * dot(i, n) * n);
+}
+
 void main()
 {
 	//screen space is ([0,1], [0,1], z in vertex shader)
@@ -107,14 +121,14 @@ void main()
 	int objectIndex[2] = int[2](999, 999);//triangle = 0, sphere = 1;
 
 	vec3 camPos = vec3(0.5, 0.5, 0.0);
-	Light light = LightConstructor(vec3(1, 4, 0), vec3(1.0, 1.0, 1.0));
+	Light light = LightConstructor(vec3(1, 4, 0), vec3(0.1, 0.8, 0.1), 1);
 	Ray ray = RayConstructor(camPos, screenCoord - camPos);
 
-	Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.1, 0.5, 0.1)); //left front, right front, left back
-	Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.1, 0.5, 0.1)); //right front, right back, left back
+	Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //left front, right front, left back
+	Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //right front, right back, left back
 	//Triangle triangle2 = TriangleConstructor(vec3[](vec3(-3, -1, -8), vec3(4, -2, -8), vec3(0, 5, -10)), vec3(0.1, 0.5, 0.1));
-	Sphere sphere0 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.5, 0.1, 0.1));
-	Sphere sphere1 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.4, 0.1, 0.1));
+	Sphere sphere0 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.8, 0.1, 0.1));
+	Sphere sphere1 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.2, 0.1));
 	Sphere spheres[2];
 	spheres[0] = sphere0;
 	spheres[1] = sphere1;
@@ -122,9 +136,6 @@ void main()
 	triangles[0] = triangle0;
 	triangles[1] = triangle1;
 	//triangles[2] = triangle2; //testing triangle
-
-	//background color
-	FragColor = vec4(backgroundColor, 1.0);
 
 	//intersect with objects
 	float distance = 999999;
@@ -134,7 +145,7 @@ void main()
 		if (InTriangle(triangles[i], ray, t) && t < distance)
 		{
 			distance = t;
-			FragColor = vec4(triangles[i].color, 1.0);
+			//FragColor = vec4(triangles[i].color, 1.0);
 			objectIndex = int[2](0, i);//object recorded
 		}
 	}
@@ -144,13 +155,17 @@ void main()
 		if (SphereHit(spheres[i], ray, t) && t < distance)
 		{
 			distance = t;
-			FragColor = vec4(spheres[i].color, 1.0);
+			//FragColor = vec4(spheres[i].color, 1.0);
 			objectIndex = int[2](1, i);//object recorded
 		}
 	}
 
 	//if no intersect with object, return with background color
-	if(distance > 999998) return; 
+	if(distance > 999998) {
+		//background color
+		FragColor = vec4(backgroundColor, 1.0);
+		return; 
+	}
 
 	//shadow ray
 	vec3 hitPoint = ray.origin + ray.direction * distance;
@@ -168,21 +183,31 @@ void main()
 		if (SphereHit(spheres[i], lightRay, tempDist) && tempDist > 0) blocked = true;
 	}
 
-	//if blocked by another object, return the color as ambient color
+	//if blocked by another object, return ambient color
 	if (blocked){
-		FragColor += vec4(ambientColor, 1.0);
+		FragColor = 0.1 * vec4(ambientColor, 1.0);
 		return;
 	}
-	//diffuse
+	
+	//normal
 	vec3 N = vec3(0,0,0);
 	if(objectIndex[0] == 0) N = GetTriangleNormal(triangles[objectIndex[1]], ray);
 	else if(objectIndex[0] == 1) N = GetSphereNormal(spheres[objectIndex[1]], ray.origin + ray.direction * distance);
 	//FragColor = vec4(N, 1.0);//test normal
 
-	float diffuseIntensity = 0;
-	diffuseIntensity = light.intensity * max( 0.0, dot(lightRayDir, N) );
-	if(objectIndex[0] == 0)  FragColor += vec4(diffuseIntensity * triangles[objectIndex[1]].color, 1.0);
-	else if(objectIndex[0] == 1) FragColor += vec4(diffuseIntensity * spheres[objectIndex[1]].color, 1.0);
+	//Blinn-Phong shadiing
+	//diffuse
+	float diffuseIntensity = light.intensity * max( 0.0, dot(lightRayDir, N) );
+	//FragColor = vec4(diffuseIntensity,0,0, 1.0);
 
+	//specular
+	float specularExp = 4;
+	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRay.direction, N), ray.direction)), specularExp);
+	//powf(max(0.f, reflect(light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
+
+	if(objectIndex[0] == 0)
+	FragColor =  0.1 * vec4(ambientColor, 1.0) + 0.8 * vec4(diffuseIntensity * triangles[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
+	else if(objectIndex[0] == 1) 
+	FragColor = 0.1 * vec4(ambientColor, 1.0) + 0.8 * vec4(diffuseIntensity * spheres[objectIndex[1]].color, 1.0) + 0.4 * vec4(specularIntensity * light.color , 1.0);
 
 }
