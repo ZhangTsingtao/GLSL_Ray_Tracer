@@ -118,31 +118,32 @@ vec3 BlinnPhongModel(vec3 objectColor, vec3 ambientColor, Light light, vec3 inpu
 	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRayDir, N), inputRayDir)), specularExp);
 	return  0.7 * ambientColor + 0.5 * diffuseIntensity * objectColor + 0.4 * specularIntensity * light.color;
 }
-void main()
+
+//scene setup
+//screen space is ([0,1], [0,1], z in vertex shader)
+//all objects in screen space, zNear is -1
+vec3 camPos = vec3(0.5, 0.5, 0.0);
+
+Sphere sphere1 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.8, 0.1, 0.1));
+Sphere sphere2 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.2, 0.1));
+Sphere spheres[2] = Sphere[2](sphere1, sphere2);
+
+Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //left front, right front, left back
+Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //right front, right back, left back
+Triangle triangles[2] = Triangle[2](triangle0, triangle1);
+
+Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 2);
+
+vec3 backgroundColor = vec3(0.1, 0.1, 0.1);
+vec3 ambientColor = vec3(0.2, 0.1, 0.1);
+float specularExp = 100;
+
+//modulate
+float RayIntersect(Ray ray, out int objectIndex[2])
 {
-	//screen space is ([0,1], [0,1], z in vertex shader)
-	//all objects in screen space, zNear is -1
-	vec3 backgroundColor = vec3(0.1, 0.1, 0.1);
-	vec3 ambientColor = vec3(0.2, 0.1, 0.1);
-
-	vec3 camPos = vec3(0.5, 0.5, 0.0);
-	Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 2);
-	Ray ray = RayConstructor(camPos, screenCoord - camPos);
-
-	Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //left front, right front, left back
-	Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //right front, right back, left back
-	//Triangle triangle2 = TriangleConstructor(vec3[](vec3(-3, -1, -8), vec3(4, -2, -8), vec3(0, 5, -10)), vec3(0.1, 0.5, 0.1));
-	Sphere sphere0 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.8, 0.1, 0.1));
-	Sphere sphere1 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.2, 0.1));
-	Sphere spheres[2];
-	spheres[0] = sphere0;
-	spheres[1] = sphere1;
-	Triangle triangles[2];
-	triangles[0] = triangle0;
-	triangles[1] = triangle1;
-
-	int objectIndex[2] = int[2](999, 999);//triangle = 0, sphere = 1;
-	//intersect with objects
+	//
+	objectIndex[0] = -1;
+	objectIndex[1] = -1;
 	float distance = 999999;
 	for(int i = 0; i < triangles.length(); i++)
 	{
@@ -164,31 +165,41 @@ void main()
 			objectIndex = int[2](1, i);//object recorded
 		}
 	}
+	return distance;
+}
 
+bool RayHitAnything(Ray ray)
+{
+	float tempDist;
+	for(int i = 0; i < triangles.length(); i++)
+	{
+		if (InTriangle(triangles[i], ray, tempDist) && tempDist > 0) return true;
+	}
+	for(int i = 0; i < spheres.length(); i++)
+	{
+		if (SphereHit(spheres[i], ray, tempDist) && tempDist > 0) return true;
+	}
+	return false;
+}
+
+void CastOneRay(vec3 screenPosition)
+{
+	Ray ray = RayConstructor(camPos, screenPosition - camPos);
+	int objectIndex[2] = int[2](-1, -1);//triangle = 0, sphere = 1; if not indexing to any object, set to -1
+	float distance = RayIntersect(ray, objectIndex);//ray intersection
 	//if no intersect with object, return with background color
-	if(distance > 999998) {
-		//background color
+	if (objectIndex[0] < 0) {
 		FragColor = vec4(backgroundColor, 1.0);
 		return; 
 	}
-
+	
+	//light ray
 	vec3 hitPoint = ray.origin + ray.direction * distance;
 	vec3 lightRayDir = normalize(light.position - hitPoint);
 	Ray lightRay = RayConstructor(hitPoint + lightRayDir * 0.01, lightRayDir);
 
-	bool blocked = false;
-	float tempDist;
-	for(int i = 0; i < triangles.length(); i++)
-	{
-		if (InTriangle(triangles[i], lightRay, tempDist) && tempDist > 0) blocked = true;
-	}
-	for(int i = 0; i < spheres.length(); i++)
-	{
-		if (SphereHit(spheres[i], lightRay, tempDist) && tempDist > 0) blocked = true;
-	}
-
 	//if blocked by another object, return ambient color
-	if (blocked){
+	if (RayHitAnything(lightRay)){
 		FragColor = 0.7 * vec4(ambientColor, 1.0);
 		return;
 	}
@@ -205,6 +216,12 @@ void main()
 		objectColor = spheres[objectIndex[1]].color;
 	}	
 
-	vec3 phongColor = BlinnPhongModel(objectColor, ambientColor, light, ray.direction, lightRay.direction, N, 10);
+	//blinn-phong shading
+	vec3 phongColor = BlinnPhongModel(objectColor, ambientColor, light, ray.direction, lightRay.direction, N, specularExp);
 	FragColor = vec4(phongColor, 1.0);
+}
+void main()
+{
+	CastOneRay(screenCoord);
+	
 }
