@@ -112,11 +112,14 @@ Ray ReflectRay(Ray inputRay, vec3 N, vec3 reflectPoint)
 	return RayConstructor(reflectPoint, i - 2.0 * dot(i, n) * n);
 }
 
+float ka = 0.7;
+float kd = 0.5;
+float ks = 0.4;
 vec3 BlinnPhongModel(vec3 objectColor, vec3 ambientColor, Light light, vec3 inputRayDir, vec3 lightRayDir, vec3 N, float specularExp)
 {
 	float diffuseIntensity = light.intensity * max( 0.0, dot(lightRayDir, N) );
 	float specularIntensity = light.intensity * pow(max(0.0, dot(Reflect(lightRayDir, N), inputRayDir)), specularExp);
-	return  0.7 * ambientColor + 0.5 * diffuseIntensity * objectColor + 0.4 * specularIntensity * light.color;
+	return  ka * ambientColor + kd * diffuseIntensity * objectColor + ks * specularIntensity * light.color;
 }
 
 //scene setup
@@ -125,18 +128,18 @@ vec3 BlinnPhongModel(vec3 objectColor, vec3 ambientColor, Light light, vec3 inpu
 vec3 camPos = vec3(0.5, 0.5, 0.0);
 
 Sphere sphere1 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.8, 0.1, 0.1));
-Sphere sphere2 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.2, 0.1));
+Sphere sphere2 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.5, 0.3));
 Sphere spheres[2] = Sphere[2](sphere1, sphere2);
 
-Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //left front, right front, left back
-Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.4, 0.5, 0.1)); //right front, right back, left back
+Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1)); //left front, right front, left back
+Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1)); //right front, right back, left back
 Triangle triangles[2] = Triangle[2](triangle0, triangle1);
 
-Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 2);
+Light light = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 1);
 
-vec3 backgroundColor = vec3(0.1, 0.1, 0.1);
-vec3 ambientColor = vec3(0.2, 0.1, 0.1);
-float specularExp = 100;
+vec3 backgroundColor = vec3(0.0, 0.6, 0.6);
+vec3 ambientColor = vec3(0.3, 0.2, 0.1);
+float specularExp = 10;
 
 //modulate
 float RayIntersect(Ray ray, out int objectIndex[2])
@@ -181,18 +184,8 @@ bool RayHitAnything(Ray ray)
 	}
 	return false;
 }
-
-void CastOneRay(vec3 screenPosition)
+vec3 LightRayShading(Ray ray, float distance, Light light, int[2] objectIndex)
 {
-	Ray ray = RayConstructor(camPos, screenPosition - camPos);
-	int objectIndex[2] = int[2](-1, -1);//triangle = 0, sphere = 1; if not indexing to any object, set to -1
-	float distance = RayIntersect(ray, objectIndex);//ray intersection
-	//if no intersect with object, return with background color
-	if (objectIndex[0] < 0) {
-		FragColor = vec4(backgroundColor, 1.0);
-		return; 
-	}
-	
 	//light ray
 	vec3 hitPoint = ray.origin + ray.direction * distance;
 	vec3 lightRayDir = normalize(light.position - hitPoint);
@@ -200,8 +193,8 @@ void CastOneRay(vec3 screenPosition)
 
 	//if blocked by another object, return ambient color
 	if (RayHitAnything(lightRay)){
-		FragColor = 0.7 * vec4(ambientColor, 1.0);
-		return;
+		FragColor = ka * vec4(ambientColor, 1.0);
+		return ka * ambientColor;
 	}
 
 	//get normal and object color
@@ -218,10 +211,23 @@ void CastOneRay(vec3 screenPosition)
 
 	//blinn-phong shading
 	vec3 phongColor = BlinnPhongModel(objectColor, ambientColor, light, ray.direction, lightRay.direction, N, specularExp);
-	FragColor = vec4(phongColor, 1.0);
+	//if (phongColor.x + phongColor.y + phongColor.z > 3)phongColor = vec3(1,1,1);
+	return phongColor;
+}
+vec3 CastOneRay(vec3 screenPosition)
+{
+	Ray ray = RayConstructor(camPos, screenPosition - camPos);
+	int objectIndex[2] = int[2](-1, -1);//triangle = 0, sphere = 1; if not indexing to any object, set to -1
+	float distance = RayIntersect(ray, objectIndex);//ray intersection
+	//if no intersect with object, return with background color
+	if (objectIndex[0] < 0) {
+		//FragColor = vec4(backgroundColor, 1.0);
+		return backgroundColor; 
+	}
+
+	return LightRayShading(ray, distance, light, objectIndex);
 }
 void main()
 {
-	CastOneRay(screenCoord);
-	
+	FragColor = vec4 (CastOneRay(screenCoord), 1.0);
 }
