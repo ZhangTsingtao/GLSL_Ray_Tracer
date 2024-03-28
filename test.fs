@@ -32,13 +32,17 @@ struct Triangle
 	vec3[3] points;
 	vec3 color;
 	vec3 altCheckerColor;
+	float kr;
+	float kt;
 };
-Triangle TriangleConstructor(vec3[3] points, vec3 color, vec3 altColor)
+Triangle TriangleConstructor(vec3[3] points, vec3 color, vec3 altColor, float kr, float kt)
 {
 	Triangle triangle;
 	triangle.points = points;
 	triangle.color = color;
 	triangle.altCheckerColor = altColor;
+	triangle.kr = kr;
+	triangle.kt = kt;
 	return triangle;
 }
 bool InTriangle(Triangle triangle, Ray ray, out float tnear)
@@ -69,7 +73,7 @@ vec3 GetTriangleNormal(Triangle tri, Ray ray)
 	return  normalize(normal);
 }
 vec3 TriangleTextureColor(Triangle tri, vec3 intersectPoint){
-	float checkerSize = 0.25;
+	float checkerSize = 0.5;
 	float leftEnd = 999.00, rightEnd = -999.00, nearEnd = -999.00, farEnd = 999.00;//z is negative
 	for(int i = 0; i < 3; i++){
 		if(tri.points[i].x < leftEnd) leftEnd = tri.points[i].x;
@@ -92,13 +96,17 @@ struct Sphere
     vec3 center;
     float radius;
 	vec3 color;
+	float kr;
+	float kt;
 }; 
-Sphere SphereConstructor(vec3 center, float radius, vec3 color)
+Sphere SphereConstructor(vec3 center, float radius, vec3 color, float kr, float kt)
 {
 	Sphere sphere;
 	sphere.center = center;
 	sphere.radius = radius;
 	sphere.color = color;
+	sphere.kr = kr;
+	sphere.kt = kt;
 	return sphere;
 }
 bool SphereHit(Sphere sphere, Ray ray, out float tnear)
@@ -109,9 +117,9 @@ bool SphereHit(Sphere sphere, Ray ray, out float tnear)
 	if (d2 > sphere.radius * sphere.radius) return false;
 	float thc = sqrt(sphere.radius * sphere.radius - d2);
 	tnear = tca - thc;
-	float tfar = tca + thc;
-	if (tnear < 0) tnear = tfar;
-	return true;
+	//float tfar = tca + thc;
+	if (tnear < 0) return false;
+	else return true;
 }
 vec3 GetSphereNormal(Sphere sphere, vec3 hitPosition)
 {
@@ -147,15 +155,15 @@ vec3 BlinnPhongModel(vec3 objectColor, vec3 ambientColor, Light light, vec3 inpu
 //all objects in screen space, zNear is -1
 vec3 camPos = vec3(0.5, 0.5, 0.0);
 
-Sphere sphere1 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.8, 0.1, 0.1));
-Sphere sphere2 = SphereConstructor(vec3(-0.3, -0.15, -2.6), 0.6, vec3(0.7, 0.5, 0.3));
+Sphere sphere1 = SphereConstructor(vec3(0.6, 0.6, -2), 0.7, vec3(0.1, 0.1, 0.8), 0, 0);
+Sphere sphere2 = SphereConstructor(vec3(-0.3, -0.15, -3), 0.6, vec3(0.5, 0.5, 0.5), 0.95, 0);
 Sphere spheres[2] = Sphere[2](sphere1, sphere2);
 
-Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, -1.1), vec3(2, -1, -1.1), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1), vec3(0.6,0,0)); //left front, right front, left back
-Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, -1.1), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1), vec3(0.6,0,0)); //right front, right back, left back
+Triangle triangle0 = TriangleConstructor(vec3[](vec3(-3, -1, 0), vec3(2, -1, 0), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1), vec3(0.6,0,0), 0, 0); //left front, right front, left back
+Triangle triangle1 = TriangleConstructor(vec3[](vec3(2, -1, 0), vec3(2, -1, -8), vec3(-3, -1, -8)), vec3(0.6, 0.6, 0.1), vec3(0.6,0,0), 0, 0); //right front, right back, left back
 Triangle triangles[2] = Triangle[2](triangle0, triangle1);
 
-Light light0 = LightConstructor(vec3(1, 4, 0), vec3(1,1,1), 1);
+Light light0 = LightConstructor(vec3(0, 4, 0), vec3(1,1,1), 1);
 Light light1 = LightConstructor(vec3(-1, 1, -0.5), vec3(1,1,1), 1);
 //Light lights[2] = Light[2](light0, light1); //For multiple light sources
 Light lights[1] = Light[1](light0);
@@ -177,7 +185,6 @@ float RayIntersect(Ray ray, out int objectIndex[2])
 		if (InTriangle(triangles[i], ray, t) && t < distance)
 		{
 			distance = t;
-			//FragColor = vec4(triangles[i].color, 1.0);
 			objectIndex = int[2](0, i);//object recorded
 		}
 	}
@@ -187,7 +194,6 @@ float RayIntersect(Ray ray, out int objectIndex[2])
 		if (SphereHit(spheres[i], ray, t) && t < distance)
 		{
 			distance = t;
-			//FragColor = vec4(spheres[i].color, 1.0);
 			objectIndex = int[2](1, i);//object recorded
 		}
 	}
@@ -207,6 +213,27 @@ bool RayHitAnything(Ray ray)
 	}
 	return false;
 }
+vec3 GetNormal(Ray ray, float distance, int[2] objectIndex)
+{
+	vec3 N = vec3(0,0,0);
+	if(objectIndex[0] == 0) {
+		N = GetTriangleNormal(triangles[objectIndex[1]], ray);
+	}
+	else if(objectIndex[0] == 1) {
+		N = GetSphereNormal(spheres[objectIndex[1]], ray.origin + ray.direction * distance);
+	}
+	return N;	
+}
+
+float GetKr(int[2] objectIndex){
+	if(objectIndex[0] == 0) {
+		return triangles[objectIndex[1]].kr;
+	}
+	else if(objectIndex[0] == 1) {
+		return spheres[objectIndex[1]].kr;
+	}
+}
+
 vec3 LightRayShading(Ray ray, float distance, Light light, int[2] objectIndex)
 {
 	//light ray
@@ -225,41 +252,69 @@ vec3 LightRayShading(Ray ray, float distance, Light light, int[2] objectIndex)
 	}
 
 	//get normal and object color
-	vec3 N = vec3(0,0,0);
+	vec3 N = GetNormal(ray, distance, objectIndex);
 	vec3 objectColor;
 	if(objectIndex[0] == 0) {
-		N = GetTriangleNormal(triangles[objectIndex[1]], ray);
-		//objectColor = triangles[objectIndex[1]].color;
 		objectColor = TriangleTextureColor(triangles[objectIndex[1]], ray.origin + ray.direction * distance);
 	}
 	else if(objectIndex[0] == 1) {
-		N = GetSphereNormal(spheres[objectIndex[1]], ray.origin + ray.direction * distance);
 		objectColor = spheres[objectIndex[1]].color;
 	}	
 
 	//blinn-phong shading
 	vec3 phongColor = BlinnPhongModel(objectColor, ambientColor, light, ray.direction, lightRay.direction, N, specularExp);
-	//if (phongColor.x + phongColor.y + phongColor.z > 3)phongColor = vec3(1,1,1);
 	return phongColor;
 }
-vec3 CastOneRay(vec3 screenPosition)
+vec3 CastOneRay(Ray ray, out int objectIndex[2], out vec3 hitPos, out vec3 hitNormal)
 {
-	Ray ray = RayConstructor(camPos, screenPosition - camPos);
-	int objectIndex[2] = int[2](-1, -1);//triangle = 0, sphere = 1; if not indexing to any object, set to -1
-	float distance = RayIntersect(ray, objectIndex);//ray intersection
+	//int objectIndex[2] = int[2](-1, -1);//triangle = 0, sphere = 1; if not indexing to any object, set to -1
+	float distance = RayIntersect(ray, objectIndex);
+
 	//if no intersect with object, return with background color
 	if (objectIndex[0] < 0) {
-		//FragColor = vec4(backgroundColor, 1.0);
-		return backgroundColor; 
+		hitNormal = vec3(0,0,0);
+		hitPos = vec3(0,0,0);
+		return backgroundColor;
 	}
+	 	
+	if(objectIndex[0] == 1 && objectIndex[1] == 1){
 
+	}
+	hitPos = ray.origin + ray.direction * distance;
+	hitNormal = GetNormal(ray, distance, objectIndex);
+
+	//local shading
 	vec3 colorSum = vec3(0,0,0);
 	for(int i = 0; i < lights.length(); i++){
 		colorSum += LightRayShading(ray, distance, lights[i], objectIndex);
 	}
+
 	return colorSum;
 }
+
 void main()
 {
-	FragColor = vec4 (CastOneRay(screenCoord), 1.0);
+	
+	vec3 colorSum = vec3(0,0,0);
+
+	int objectIndex[2] = int[2](-1, -1);
+	vec3 hitPos = vec3(0,0,0);
+	vec3 hitNormal = vec3(0,0,0);
+	vec3 rayDir = normalize(screenCoord - camPos);
+
+	Ray ray = RayConstructor(camPos, rayDir);
+	colorSum += CastOneRay(ray, objectIndex, hitPos, hitNormal);
+
+	if(objectIndex[0] >= 0){
+		//reflection
+		float kr = GetKr(objectIndex);
+		if(kr > 0.0){
+			vec3 reflectionDir = normalize(ray.direction - 2.0 * hitNormal * dot(hitNormal, ray.direction));
+			Ray ray = RayConstructor(hitPos, reflectionDir);
+			colorSum += kr * CastOneRay(ray, objectIndex, hitPos, hitNormal);
+		}
+		
+	}
+	
+	FragColor = vec4 (colorSum, 1.0);
 }
