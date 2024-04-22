@@ -11,7 +11,7 @@ void processInput(GLFWwindow* window);
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 800;
-
+float screenZ = -0.5f;
 int main()
 {
     // glfw: initialize and configure
@@ -96,32 +96,24 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
-        // input
-        // -----
         processInput(window);
 
         // render
-        // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // render the triangle
+        // render the triangle as canvas
         ourShader.use();
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
         //glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        //test passing uniform
-        /*float screenZ = -0.1f;
-        int vertexColorLocation = glGetUniformLocation(ourShader.ID, "screenZ");
-        glUniform1f(vertexColorLocation, screenZ);*/
-        ourShader.setFloat("screenZ", -0.5f);
+        ourShader.setFloat("screenZ", screenZ);
         //test done
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         // glBindVertexArray(0); // no need to unbind it every time 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents(); 
     }
@@ -143,6 +135,8 @@ void processInput(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) screenZ -= 0.001f;   
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) screenZ += 0.001f;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
