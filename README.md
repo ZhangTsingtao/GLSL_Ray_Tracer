@@ -8,6 +8,8 @@ This is my individual project assignment. I recreated the Whitted-style ray trac
 
 Compile and run from Ray_Tracer.sln.
 
+![tr_base](.\tr_output\tr_base.bmp)
+
 ## Structure Explanation
 
 main.cpp serves as the framework to pull up a quad plane made up of two triangle, and the vertex and fragment shaders attached to the plane generate the actual image. I ran over all these "hassle" because I want to exploit the power of parallel computation, and I did.
