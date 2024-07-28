@@ -108,7 +108,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>MyLib\include;MyLib\glfw-3.3.9.bin.WIN64\include;MyLib\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>MyLib\CImg-3.3.6_pre04122408;MyLib\include;MyLib\glfw-3.3.9.bin.WIN64\include;MyLib\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -138,8 +138,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.fs" />
-    <None Include="test.vs" />
+    <None Include="RayTracer.fs" />
+    <None Include="RayTracer.vs" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shader.h" />

@@ -1,17 +1,229 @@
+//I'm doing ray tracing in fragment shader
+//main.cpp setup the drawing canvas and the camera's Z value as modifier on FOV
+//the ray tracer code is in RayTracer.fs
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "CImg.h"
+#include <iostream> 
+#include <fstream>
 
 #include "shader.h"
 
-#include <iostream> 
+
+using namespace cimg_library;
+using namespace std;
+
+#define WindowSizeX 800
+#define WindowSizeY 800
+// settings
+float screenZ = -0.5f;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 800;
-float screenZ = -0.5f;
+//preparations for saving and loading bmp file
+//The code for checkpoint 7 tone reproduction starts from line 116
+#pragma pack(2)
+
+typedef unsigned char  BYTE;
+typedef unsigned short WORD;
+typedef unsigned long  DWORD;
+typedef long    LONG;
+
+
+//BMP head
+struct MYBITMAPFILEHEADER
+{
+    WORD  bfType;      
+    DWORD bfSize;      
+    WORD  bfReserved1; 
+    WORD  bfReserved2; 
+    DWORD bfOffBits;   
+};
+
+//BMP
+struct MYBITMAPINFOHEADER
+{
+    DWORD biSize;          
+    LONG  biWidth;         
+    LONG  biHeight;        
+    WORD  biPlanes;  
+    WORD  biBitCount;      
+    DWORD biCompression;   
+    DWORD biSizeImage;     
+    LONG  biXPelsPerMeter; 
+    LONG  biYPelsPerMeter; 
+    DWORD biClrUsed;       
+    DWORD biClrImportant;  
+};
+
+
+struct RGBColor
+{
+    char B;
+    char G;
+    char R;
+};
+
+
+
+void WriteBMP(const char* FileName, RGBColor* ColorBuffer, int ImageWidth, int ImageHeight)
+{
+    const int ColorBufferSize = ImageHeight * ImageWidth * sizeof(RGBColor);
+
+    //file header
+    MYBITMAPFILEHEADER fileHeader;
+    fileHeader.bfType = 0x4D42;    //0x42ÊÇ'B'£»0x4DÊÇ'M'
+    fileHeader.bfReserved1 = 0;
+    fileHeader.bfReserved2 = 0;
+    fileHeader.bfSize = sizeof(MYBITMAPFILEHEADER) + sizeof(MYBITMAPINFOHEADER) + ColorBufferSize;
+    fileHeader.bfOffBits = sizeof(MYBITMAPFILEHEADER) + sizeof(MYBITMAPINFOHEADER);
+
+    //data header
+    MYBITMAPINFOHEADER bitmapHeader = { 0 };
+    bitmapHeader.biSize = sizeof(MYBITMAPINFOHEADER);
+    bitmapHeader.biHeight = ImageHeight;
+    bitmapHeader.biWidth = ImageWidth;
+    bitmapHeader.biPlanes = 1;
+    bitmapHeader.biBitCount = 24;
+    bitmapHeader.biSizeImage = ColorBufferSize;
+    bitmapHeader.biCompression = 0; //BI_RGB
+
+
+    FILE* fp;
+
+    fopen_s(&fp, FileName, "wb");
+
+    fwrite(&fileHeader, sizeof(MYBITMAPFILEHEADER), 1, fp);
+    fwrite(&bitmapHeader, sizeof(MYBITMAPINFOHEADER), 1, fp);
+    fwrite(ColorBuffer, ColorBufferSize, 1, fp);
+
+    fclose(fp);
+
+}
+
+//take the last frame and store the image
+void ScreenShot()
+{
+    RGBColor* ColorBuffer = new RGBColor[WindowSizeX * WindowSizeY];
+
+    glReadPixels(0, 0, WindowSizeX, WindowSizeY, GL_BGR, GL_UNSIGNED_BYTE, ColorBuffer);//BMP store in BGR 
+
+    WriteBMP("./tr_output/tr_base.bmp", ColorBuffer, WindowSizeX, WindowSizeY);
+
+    delete[] ColorBuffer;
+
+}
+
+//checkpoint 7 start
+const double Ldmax = 500;
+//tone reproduction
+void wardModel(CImg<unsigned char> Img, double Lmax) 
+{
+    //Ward's model
+    double Lwa = 0;
+    cimg_forXY(Img, x, y) {
+        //step 1 and 2, get the overall luminance
+        double L = Lmax * (0.27 * (double)Img(x, y, 0) / 255.00 + 0.67 * (double)Img(x, y, 1) / 255.00 + 0.06 * (double)Img(x, y, 2) / 255.00);
+
+        //step 3, first, add up Lwa
+        Lwa += log(0.00001 + L) / (double)(WindowSizeX * WindowSizeY);
+    }
+    Lwa = exp(Lwa);//get the Lwa
+    double sf = pow((1.219 + pow(Ldmax / 2, 0.4)) / (1.219 + pow(Lwa, 0.4)), 2.5);//get sf
+
+    //apply sf to RGB
+    double LAve = 0;
+    cimg_forXY(Img, x, y) {
+        if (Lmax * sf * Img(x, y, 0) / Ldmax > 255) Img(x, y, 0) = 255;
+        else Img(x, y, 0) = Lmax * sf * (double)Img(x, y, 0) / Ldmax;
+
+        if (Lmax * sf * Img(x, y, 1) / Ldmax > 255) Img(x, y, 1) = 255;
+        else Img(x, y, 1) = Lmax * sf * (double)Img(x, y, 1) / Ldmax;
+
+        if (Lmax * sf * Img(x, y, 2) / Ldmax > 255) Img(x, y, 2) = 255;
+        else Img(x, y, 2) = Lmax * sf * (double)Img(x, y, 2) / Ldmax;
+
+        LAve += (double)(Img(x, y, 0) + Img(x, y, 1) + Img(x, y, 2)) / (3 * WindowSizeX * WindowSizeY);
+    }
+
+    Img.save_bmp("./tr_output/tr_ward_10nit.bmp");
+}
+
+void reinhardModel(CImg<unsigned char> Img, double Lmax) 
+{
+    //Reinhard's model
+    double Lwa = 0;
+    cimg_forXY(Img, x, y) {
+        //step 1 and 2, get the overall luminance
+        double L = Lmax * (0.27 * (double)Img(x, y, 0) / 255.00 + 0.67 * (double)Img(x, y, 1) / 255.00 + 0.06 * (double)Img(x, y, 2) / 255.00);
+
+        //step 3, first, add up Lwa
+        Lwa += log(0.00001 + L) / (double)(WindowSizeX * WindowSizeY);
+    }
+    Lwa = exp(Lwa);//get the Lwa
+
+    double a = 0.36;
+    cimg_forXY(Img, x, y) {
+        double Rscaled = Lmax * a * (double)Img(x, y, 0) / (Lwa * 255);
+        double Gscaled = Lmax * a * (double)Img(x, y, 1) / (Lwa * 255);
+        double Bscaled = Lmax * a * (double)Img(x, y, 2) / (Lwa * 255);
+
+        if (255 * Rscaled / (1 + Rscaled) > 255) Img(x, y, 0) = 255;
+        else Img(x, y, 0) = 255 * Rscaled / (1 + Rscaled);
+        if (255 * Gscaled / (1 + Gscaled) > 255) Img(x, y, 1) = 255;
+        else Img(x, y, 1) = 255 * Gscaled / (1 + Gscaled);
+        if (255 * Bscaled / (1 + Bscaled) > 255) Img(x, y, 2) = 255;
+        else Img(x, y, 2) = 255 * Bscaled / (1 + Bscaled);
+    }
+
+    Img.save_bmp("./tr_output/tr_reinhard_100nit_0.36.bmp");
+}
+//advanced 4 start
+void ALMmodel(CImg<unsigned char> Img, double Lmax) {
+    //Advanced: Adaptive Logarithmic Mapping
+    double Lwa = 0;
+    cimg_forXY(Img, x, y) {
+        double L = Lmax * (0.27 * (double)Img(x, y, 0) / 255.00 + 0.67 * (double)Img(x, y, 1) / 255.00 + 0.06 * (double)Img(x, y, 2) / 255.00);
+
+        Lwa += log(0.00001 + L) / (double)(WindowSizeX * WindowSizeY);
+    }
+    Lwa = exp(Lwa);
+    cout << "Lwa: " << Lwa << endl;
+
+    double Lwmax = Lmax / Lwa;
+
+    double b = 0.85;
+    cimg_forXY(Img, x, y) {
+        double L = Lmax * (0.27 * (double)Img(x, y, 0) / 255.00 + 0.67 * (double)Img(x, y, 1) / 255.00 + 0.06 * (double)Img(x, y, 2) / 255.00);
+        double Lwmax = Lmax / Lwa;
+        double Lw = L / Lwa;
+        double Ld = 1.000 / log10(Lwmax + 1) * log(Lw + 1) / log(2 + pow(Lw / Lwmax, log(b) / log(0.5)) * 8);
+
+        Img(x, y, 0) *= Ld;
+        Img(x, y, 1) *= Ld;
+        Img(x, y, 2) *= Ld;
+    }
+    Img.save_bmp("./tr_output/tr_ALM_10nit.bmp");
+}
+//advanced 4 end
+
+void toneReproduction()
+{
+    CImg<unsigned char> SrcImg;
+    SrcImg.load_bmp("./tr_output/tr_base.bmp");
+
+    CImg<unsigned char> Img = SrcImg; //0,1,2 => R G B
+
+    double Lmax = 100;
+
+    //To apply tone reproduction, uncomment any of the three functions below and see the result in ./tr_output
+    //wardModel(Img, Lmax);//checkpoint 7
+    //reinhardModel(Img, Lmax);//checkpoint 7
+    //ALMmodel(Img, Lmax);//advanced 4
+}
+//checkpoint 7 end
+
 int main()
 {
     // glfw: initialize and configure
@@ -27,7 +239,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Ray Tracer", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WindowSizeX, WindowSizeY, "Ray Tracer", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -47,8 +259,7 @@ int main()
 
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader("test.vs", "test.fs"); // you can name your shader files however you like
-
+    Shader ourShader("RayTracer.vs", "RayTracer.fs");
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
     float vertices[] = {
@@ -94,7 +305,7 @@ int main()
 
     // render loop
     // -----------
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window)) //keep updating
     {
         processInput(window);
 
@@ -108,7 +319,6 @@ int main()
         //glDrawArrays(GL_TRIANGLES, 0, 6);
 
         ourShader.setFloat("screenZ", screenZ);
-        //test done
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         // glBindVertexArray(0); // no need to unbind it every time 
@@ -117,6 +327,8 @@ int main()
         glfwSwapBuffers(window);
         glfwPollEvents(); 
     }
+    ScreenShot();
+    toneReproduction();
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------

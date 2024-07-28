@@ -26,10 +26,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.fs">
+    <None Include="RayTracer.fs">
       <Filter>shaders</Filter>
     </None>
-    <None Include="test.vs">
+    <None Include="RayTracer.vs">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
