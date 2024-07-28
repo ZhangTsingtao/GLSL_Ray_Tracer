@@ -8,7 +8,7 @@ This is my individual project assignment. I recreated the Whitted-style ray trac
 
 Compile and run from Ray_Tracer.sln.
 
-![image-20240728183159993](C:\Users\TAO\AppData\Roaming\Typora\typora-user-images\image-20240728183159993.png)
+![image-20240728183159993](https://github.com/ZhangTsingtao/Ray_Tracer/blob/Fragment_Shader/RayTracingDemo.png)
 
 ## Structure Explanation
 
