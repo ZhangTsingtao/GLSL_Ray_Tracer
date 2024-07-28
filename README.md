@@ -8,7 +8,7 @@ This is my individual project assignment. I recreated the Whitted-style ray trac
 
 Compile and run from Ray_Tracer.sln.
 
-![tr_base](.\tr_output\tr_base.bmp)
+![tr_base](.\RayTracingDemo.png)
 
 ## Structure Explanation
 
