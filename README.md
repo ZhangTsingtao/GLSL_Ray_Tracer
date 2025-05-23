@@ -28,6 +28,8 @@ Texturing. Based on the primitives, I added texture sampling for the triangles.
 
 Reflection and Transmission. When a ray intersects with a reflective and/or transmissive object, it changes its path and continue to detect intersection, and thus we get reflection and transmission. Since it's an iterative approach, I needed to set a limited step amount. Since I'm working with GLSL, which doesn't support recursion, so I have to manually call each iteratoni method.
 
+The HDR image process pass happens after the shader, in main.cpp, which is commented by "checkpoint 7 tone reproduction" and "advanced 4" "Advanced: Adaptive Logarithmic Mapping".
+
 ## Code specification (for course grading)
 
 Submission includes checkpoint 1- 7 and advanced 4.
